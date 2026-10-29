@@ -1,0 +1,67 @@
+#pragma once
+
+#include <cstdint>
+#include <vector>
+#include <array>
+#include "gameobject.h"
+#include "../system/commontypes.h"
+#include "../system/IScene.h"
+#include "../system/CShader.h"
+#include "../system/CMaterial.h"
+#include "../system/CTexture.h"
+#include "../system/CPlaneMesh.h"
+#include "../system/CMeshRenderer.h"
+#include "../system/CPlane.h"
+
+class field : public gameobject {
+public:
+    explicit field(SceneBase* scene) : gameobject(scene) {}
+
+    void init() override;
+    void update(uint64_t delta) override;
+    void draw(uint64_t delta) override;
+    void dispose() override;
+
+    void setsize(float sizex, float sizez) {
+        m_sizex = sizex;
+        m_sizez = sizez;
+    }
+
+    void setdivide(int divx, int divz) {
+        m_divx = divx;
+        m_divz = divz;
+    }
+
+    void makeundulationwithperlin(
+        float min,       // 最小
+        float max,       // 最大
+        float scale,     // スケール
+        float offsetx,   // オフセットX
+        float offsetz    // オフセットZ
+    );
+
+    void makeplaneequation(); // スペル修正: equatation -> equation
+
+    // 状態を変更しないためconstメンバ関数に変更、引数はconst参照渡し
+    float GetHeight(const Vector3& pos) const;
+    float GetHeight2(const Vector3& pos) const;
+    int GetSquareNo(const Vector3& pos) const;
+    void GetFaceVertex(int triangleindex, std::array<Vector3, 3>& trianglevertices) const;
+    std::array<Vector3, 3> GetCurrentTriangleVertex(const Vector3& pos) const;
+
+private:
+    CShader m_Shader;
+    CMaterial m_Material;
+    CTexture m_Texture;
+
+    CPlaneMesh m_planemesh;
+    CMeshRenderer m_planerenderer;
+
+    float m_sizex{ 1000.0f };
+    float m_sizez{ 1000.0f };
+
+    int32_t m_divx{ 10 };
+    int32_t m_divz{ 10 };
+
+    std::vector<CPlane> m_planeeq;
+};

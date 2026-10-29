@@ -1,0 +1,219 @@
+#include "field.h"
+#include <cstdint>
+#include <cassert>
+#include <cmath>
+#include <vector>
+#include "../system/renderer.h"
+#include "../system/stb_perlin.h"
+#include "../system/collision.h"
+
+void field::init() {
+    m_srt.pos = Vector3(0, 0, 0);
+    m_srt.scale = Vector3(1.0f, 1.0f, 1.0f);
+    m_srt.rot = Vector3(0, 0, 0);
+
+    m_Shader.Create("shader/vertexLightingVS.hlsl", "shader/vertexLightingPS.hlsl");
+
+    MATERIAL mtrl;
+    mtrl.Ambient = Color(0, 0, 0, 0);
+    mtrl.Diffuse = Color(1, 1, 1, 1);
+    mtrl.Emission = Color(0, 0, 0, 0);
+    mtrl.Specular = Color(0, 0, 0, 0);
+    mtrl.Shiness = 0;
+    mtrl.TextureEnable = true;
+    m_Material.Create(mtrl);
+
+    bool sts = m_Texture.Load("assets/texture/Grass01.jpg");
+    assert(sts == true);
+
+    m_planemesh.Init(m_divx, m_divz, m_sizex, m_sizez, Color(1, 1, 1, 1), Vector3(0, 1, 0), true);
+    m_planerenderer.Init(m_planemesh);
+}
+
+void field::update(uint64_t dt) {}
+
+void field::draw(uint64_t dt) {
+    Matrix4x4 mtx = m_srt.GetMatrix();
+    Renderer::SetWorldMatrix(&mtx);
+
+    m_Shader.SetGPU();
+    m_Material.SetGPU();
+    m_Texture.SetGPU();
+
+    m_planerenderer.Draw();
+}
+
+void field::dispose() {}
+
+void field::makeundulationwithperlin(float min, float max, float scale, float offsetx, float offsetz) {
+    std::vector<VERTEX_3D> vertices = m_planemesh.GetVertices();
+    const std::vector<uint32_t>& indices = m_planemesh.GetIndices();
+
+    const int width = m_divx + 1;
+
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        int x = static_cast<int>(i) % width;
+        int z = static_cast<int>(i) / width;
+
+        float fx = x * scale + offsetx;
+        float fz = z * scale + offsetz;
+
+        float n = stb_perlin_noise3(fx, 0.0f, fz, 0, 0, 0); // [-1,1]
+        float h01 = (n + 1.0f) * 0.5f;                      // [0,1]
+        vertices[i].Position.y = min + (max - min) * h01;
+    }
+
+    for (size_t i = 0; i < indices.size() / 3; ++i) {
+        int idx0 = indices[i * 3 + 0];
+        int idx1 = indices[i * 3 + 1];
+        int idx2 = indices[i * 3 + 2];
+
+        Vector3 edge01 = vertices[idx1].Position - vertices[idx0].Position;
+        Vector3 edge02 = vertices[idx2].Position - vertices[idx0].Position;
+
+        Vector3 normal = edge01.Cross(edge02);
+        normal.Normalize();
+
+        vertices[idx0].Normal = normal;
+        vertices[idx1].Normal = normal;
+        vertices[idx2].Normal = normal;
+    }
+
+    m_planemesh.SetVertices(vertices);
+    m_planerenderer.Modify(vertices);
+
+    makeplaneequation();
+}
+
+void field::makeplaneequation() {
+    m_planeeq.clear();
+
+    const std::vector<VERTEX_3D>& vertices = m_planemesh.GetVertices();
+    const std::vector<uint32_t>& indices = m_planemesh.GetIndices();
+
+    for (size_t i = 0; i < indices.size() / 3; ++i) {
+        int idx0 = indices[i * 3 + 0];
+        int idx1 = indices[i * 3 + 1];
+        int idx2 = indices[i * 3 + 2];
+
+        CPlane p;
+        p.MakeEquatation(vertices[idx0].Position, vertices[idx1].Position, vertices[idx2].Position);
+        m_planeeq.emplace_back(p);
+    }
+}
+
+float field::GetHeight(const Vector3& pos) const {
+    const std::vector<uint32_t>& indices = m_planemesh.GetIndices();
+    Vector3 up = { 0, 1, 0 };
+    Vector3 startpoint = { pos.x, 0, pos.z };
+
+    for (size_t i = 0; i < indices.size() / 3; ++i) {
+        Vector3 ans;
+        float t = 0.0f;
+        PLANEINFO pinfo = m_planeeq[i].GetPlaneInfo();
+
+        if (GM31::GE::Collision::LinetoPlaneCross(pinfo.plane, startpoint, up, t, ans)) {
+            if (GM31::GE::Collision::CheckInTriangle(pinfo.p0, pinfo.p1, pinfo.p2, ans)) {
+                return ans.y;
+            }
+        }
+    }
+    return 0.0f;
+}
+
+float field::GetHeight2(const Vector3& pos) const {
+    int sqno = GetSquareNo(pos);
+    if (sqno == -1) {
+        return 0.0f;
+    }
+
+    std::array<Vector3, 3> vertices1, vertices2;
+    GetFaceVertex(sqno * 2, vertices1);
+    GetFaceVertex(sqno * 2 + 1, vertices2);
+
+    Vector3 up = { 0, 1, 0 };
+    Vector3 startpoint = { pos.x, 0, pos.z };
+    float t = 0.0f;
+    Vector3 ans;
+
+    // 1つ目の三角形と判定
+    CPlane pl1;
+    pl1.MakeEquatation(vertices1[0], vertices1[1], vertices1[2]);
+    if (GM31::GE::Collision::LinetoPlaneCross(pl1.GetPlaneInfo().plane, startpoint, up, t, ans)) {
+        if (GM31::GE::Collision::CheckInTriangle(vertices1[0], vertices1[1], vertices1[2], ans)) {
+            return ans.y;
+        }
+    }
+
+    // 2つ目の三角形と判定（矩形内で1つ目の外なら確実に2つ目側）
+    CPlane pl2;
+    pl2.MakeEquatation(vertices2[0], vertices2[1], vertices2[2]);
+    if (GM31::GE::Collision::LinetoPlaneCross(pl2.GetPlaneInfo().plane, startpoint, up, t, ans)) {
+        return ans.y;
+    }
+
+    return 0.0f;
+}
+
+int field::GetSquareNo(const Vector3& pos) const {
+    // 範囲チェック (早期リターンでネストを浅く)
+    if (pos.x < -m_sizex / 2.0f || pos.x > m_sizex / 2.0f ||
+        pos.z < -m_sizez / 2.0f || pos.z > m_sizez / 2.0f) {
+        return -1;
+    }
+
+    // 左下原点の相対座標に変換
+    float relativex = pos.x + (m_sizex / 2.0f);
+    float relativez = pos.z + (m_sizez / 2.0f);
+
+    float mapchipwidth = std::fabs(m_sizex / m_divx);
+    float mapchipheight = std::fabs(m_sizez / m_divz);
+
+    // インデックス算出
+    int mapchipx = static_cast<int>(relativex / mapchipwidth);
+    int mapchipz = static_cast<int>(relativez / mapchipheight);
+
+    // 境界に重なった時の安全措置
+    if (mapchipx >= m_divx) mapchipx = m_divx - 1;
+    if (mapchipz >= m_divz) mapchipz = m_divz - 1;
+
+    int squareno = mapchipz * m_divx + mapchipx;
+
+    if (squareno < 0) return 0;
+
+    int maxSq = m_divx * m_divz - 1;
+    if (squareno > maxSq) return maxSq;
+
+    return squareno;
+}
+
+void field::GetFaceVertex(int triangleindex, std::array<Vector3, 3>& trianglevertices) const {
+    const std::vector<VERTEX_3D>& vertices = m_planemesh.GetVertices();
+    const std::vector<uint32_t>& indices = m_planemesh.GetIndices();
+
+    int baseIdx = triangleindex * 3;
+    trianglevertices[0] = vertices[indices[baseIdx + 0]].Position;
+    trianglevertices[1] = vertices[indices[baseIdx + 1]].Position;
+    trianglevertices[2] = vertices[indices[baseIdx + 2]].Position;
+}
+
+std::array<Vector3, 3> field::GetCurrentTriangleVertex(const Vector3& pos) const {
+    int sqno = GetSquareNo(pos);
+    if (sqno == -1) {
+        return {};
+    }
+
+    std::array<Vector3, 3> vertices1, vertices2;
+    GetFaceVertex(sqno * 2, vertices1);
+    GetFaceVertex(sqno * 2 + 1, vertices2);
+
+    if (GM31::GE::Collision::CheckInTriangle(vertices1[0], vertices1[1], vertices1[2], pos)) {
+        return vertices1;
+    }
+
+    if (GM31::GE::Collision::CheckInTriangle(vertices2[0], vertices2[1], vertices2[2], pos)) {
+        return vertices2;
+    }
+
+    return {};
+}
