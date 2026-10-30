@@ -71,6 +71,9 @@ public:
     // pos が乗っている三角形の3頂点座標を取得する（範囲外は原点3つ）
     std::array<Vector3, 3> GetCurrentTriangleVertex(const Vector3& pos) const;
 
+    float GetSizeX() const { return m_sizex; }
+    float GetSizeZ() const { return m_sizez; }
+
 private:
     // 真上へ伸ばしたレイで、pos が乗っている三角形と交点を求める
     bool raycastvertical(const Vector3& pos, int& triangleindex, Vector3& hitpoint) const;

@@ -70,6 +70,14 @@ public:
 	void DebugFieldUnduration();
 
 private:
+    void UpdateFollowCamera();
+    void DebugCharacter();
+    bool m_showAxes{ false };
+    bool m_showTerrainTriangle{ false };
+    float m_cameraRadius{ 260.0f };
+    float m_cameraAzimuth{ PI * 0.5f };
+    float m_cameraElevation{ -PI * 65.0f / 180.0f };
+
     bool m_showPlayerBounds{ false };
 
 	// DirectWrite
