@@ -1,19 +1,58 @@
-#include	<cstdint>
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include	"player.h"	
 #include	"wall.h"
 #include	"field.h"
 #include	"../system/commontypes.h"
 #include	"../system/Inputmanager.h"	
 #include	"../system/transform.h"
-#include	"../system/meshmanager.h"
+#include "../system/CapsuleDrawer.h"
+#include "../system/SphereDrawer.h"
 #include	"../system/camera.h"
 #include	"../system/collision.h"
+
+namespace {
+    // Capsule endpoints are sphere centers in the player's local space.
+    void DrawBodyPart(const Vector3& start, const Vector3& end, float radius,
+        const Color& color, const Matrix4x4& playerWorld)
+    {
+        Vector3 up = end - start;
+        const float length = up.Length();
+        if (length <= 0.0001f) {
+            return;
+        }
+        up /= length;
+
+        const Vector3 reference = std::fabs(up.z) < 0.99f
+            ? Vector3(0, 0, 1) : Vector3(1, 0, 0);
+        Vector3 right = up.Cross(reference);
+        right.Normalize();
+        const Vector3 forward = right.Cross(up);
+        const Vector3 center = (start + end) * 0.5f;
+
+        Matrix4x4 local = Matrix4x4::Identity;
+        local._11 = right.x;   local._12 = right.y;   local._13 = right.z;
+        local._21 = up.x;      local._22 = up.y;      local._23 = up.z;
+        local._31 = forward.x; local._32 = forward.y; local._33 = forward.z;
+        local._41 = center.x;  local._42 = center.y;  local._43 = center.z;
+
+        CapsuleDrawerDraw(radius, length, color, local * playerWorld);
+    }
+
+    Vector3 SwingOffset(const Vector3& offset, float angle)
+    {
+        return Vector3::TransformNormal(offset, Matrix4x4::CreateRotationX(angle));
+    }
+}
 
 void player::init() {
 
 	m_srt.pos = Vector3(0, 0, 0);
 	m_srt.scale = Vector3(1.0f, 1.0f, 1.0f);
 	m_srt.rot = Vector3(0, 0, 0);
+    m_walkPhase = 0.0f;
+    m_walkAmount = 0.0f;
 }
 
 void player::update(uint64_t dt) {
@@ -232,18 +271,60 @@ void player::update(uint64_t dt) {
 	float height = fieldobj->GetHeight2(m_srt.pos);
 	m_srt.pos.y = height;
 
-	// 移動量に慣性をかける(減速率)//
+	    // Advance the gait from actual travel, so blocked movement does not walk in place.
+    const float distance = std::sqrt(m_move.x * m_move.x + m_move.z * m_move.z);
+    const float targetWalkAmount = std::min(distance / 8.0f, 1.0f);
+    const float seconds = std::min(static_cast<float>(dt) / 1000000.0f, 0.1f);
+    m_walkAmount += (targetWalkAmount - m_walkAmount) * std::min(seconds * 12.0f, 1.0f);
+    m_walkPhase = std::fmod(m_walkPhase + distance * 0.12f, 2.0f * PI);
+
+    // 移動量に慣性をかける(減速率)//
 	m_move += -m_move * RATE_MOVE_MODEL;
 }
 	
-void player::draw(uint64_t dt) {
+void player::draw(uint64_t /*dt*/) {
+    const Matrix4x4 world = m_srt.GetMatrix();
+    const Color shirt(0.12f, 0.48f, 0.85f, 1.0f);
+    const Color trousers(0.13f, 0.19f, 0.30f, 1.0f);
+    const Color skin(1.0f, 0.76f, 0.55f, 1.0f);
+    const Color shoes(0.08f, 0.09f, 0.12f, 1.0f);
+    const Color eyes(0.04f, 0.05f, 0.07f, 1.0f);
 
-	Matrix4x4 mtx = m_srt.GetMatrix();
+    // Feet rest on local Y=0; the head reaches MODEL_HEIGHT.
+    DrawBodyPart(Vector3(-6, 35, 0), Vector3(6, 35, 0), 7.0f, trousers, world);
+    DrawBodyPart(Vector3(0, 43, 0), Vector3(0, 55, 0), 10.0f, shirt, world);
+    DrawBodyPart(Vector3(0, 62, 0), Vector3(0, 66, 0), 3.5f, skin, world);
+    DrawBodyPart(Vector3(0, 71, 0), Vector3(0, 75, 0), 8.0f, skin, world);
 
-	// 行列をセットして描画
-	ShaderManager::getShader<CShader>("Shader3D")->SetGPU();
-	Renderer::SetWorldMatrix(&mtx);
-	MeshManager::getRenderer<CMeshRenderer>(m_meshid)->Draw();
+    for (int side : {-1, 1}) {
+        const float wave = std::sin(m_walkPhase) * static_cast<float>(side);
+        const float legAngle = wave * 0.45f * m_walkAmount;
+        const float kneeBend = std::max(wave, 0.0f) * 0.55f * m_walkAmount;
+
+        const Vector3 hip(side * 6.0f, 35, 0);
+        const Vector3 knee = hip + SwingOffset(Vector3(0, -14, 0), legAngle);
+        const Vector3 ankle = knee + SwingOffset(Vector3(0, -14, 0), legAngle - kneeBend);
+        DrawBodyPart(hip, knee, 4.5f, trousers, world);
+        DrawBodyPart(knee, ankle, 4.0f, trousers, world);
+
+        const Vector3 heel = ankle + Vector3(0, -3, 1);
+        DrawBodyPart(heel, heel + Vector3(0, 0, -7), 4.0f, shoes, world);
+
+        // Arms swing opposite to the leg on the same side.
+        const float armAngle = -wave * 0.5f * m_walkAmount;
+        const Vector3 shoulder(side * 13.0f, 55, 0);
+        const Vector3 elbow = shoulder + SwingOffset(Vector3(side * 3.0f, -12, 0), armAngle);
+        const Vector3 wrist = elbow + SwingOffset(Vector3(side * 1.0f, -11, -1), armAngle - 0.12f);
+        DrawBodyPart(shoulder, elbow, 3.5f, shirt, world);
+        DrawBodyPart(elbow, wrist, 3.0f, skin, world);
+        DrawBodyPart(wrist, wrist + Vector3(0, -3, 0), 3.5f, skin, world);
+
+        // The face and shoes point toward local -Z, matching the movement heading.
+        const Matrix4x4 eyeWorld = Matrix4x4::CreateScale(1.2f)
+            * Matrix4x4::CreateTranslation(side * 2.8f, 74, -7.4f) * world;
+        SphereDrawerDraw(eyeWorld, eyes);
+    }
+    DrawBodyPart(Vector3(0, 70, -7), Vector3(0, 70, -9), 1.5f, skin, world);
 }
 
 void player::dispose()

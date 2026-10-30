@@ -446,4 +446,24 @@
       <Filter>ソース ファイル\shader</Filter>
     </FxCompile>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="gameobject\capsulehumanoid.h">
+      <Filter>ソース ファイル\gameobject</Filter>
+    </ClInclude>
+    <ClInclude Include="scene\motioneditorscene.h">
+      <Filter>ソース ファイル\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="utility\keyframemotion.h">
+      <Filter>ソース ファイル\utility</Filter>
+    </ClInclude>
+    <ClCompile Include="gameobject\capsulehumanoid.cpp">
+      <Filter>ソース ファイル\gameobject</Filter>
+    </ClCompile>
+    <ClCompile Include="scene\motioneditorscene.cpp">
+      <Filter>ソース ファイル\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="utility\keyframemotion.cpp">
+      <Filter>ソース ファイル\utility</Filter>
+    </ClCompile>
+  </ItemGroup>
 </Project>

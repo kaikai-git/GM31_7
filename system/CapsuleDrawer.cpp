@@ -131,3 +131,7 @@ void CapsuleDrawerDraw(Matrix4x4 mtx, Color col)
 		col,
 		mtx);
 }
+void CapsuleDrawerDraw(float radius, float height, Color col, const Matrix4x4& world)
+{
+    DrawCapsuleParts(radius, height, col, world);
+}

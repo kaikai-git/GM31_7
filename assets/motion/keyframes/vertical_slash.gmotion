@@ -1,0 +1,97 @@
+GM31_KEYFRAME_MOTION 1
+name "VerticalSlash"
+duration 1.20000005
+loop 0
+joints 16
+keys 5
+key 0
+root 0 0 0
+hips 0 0 0
+spine 0 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 0 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 0 0 0
+right_forearm 0 0 0
+right_hand 0 0 0
+left_thigh 0 0 0
+left_shin 0 0 0
+left_foot 0 0 0
+right_thigh 0 0 0
+right_shin 0 0 0
+right_foot 0 0 0
+key 0.400000006
+root 0 0 0
+hips 0 0 0
+spine -8 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 0 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 165 0 -15
+right_forearm -45 0 0
+right_hand 50 0 0
+left_thigh 0 0 0
+left_shin 0 0 0
+left_foot 0 0 0
+right_thigh 0 0 0
+right_shin 0 0 0
+right_foot 0 0 0
+key 0.649999976
+root 0 0 0
+hips 0 0 0
+spine 20 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 0 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 65 0 0
+right_forearm -10 0 0
+right_hand -70 0 0
+left_thigh 0 0 0
+left_shin 0 0 0
+left_foot 0 0 0
+right_thigh 0 0 0
+right_shin 0 0 0
+right_foot 0 0 0
+key 0.850000024
+root 0 0 0
+hips 0 0 0
+spine 20 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 0 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 65 0 0
+right_forearm -10 0 0
+right_hand -70 0 0
+left_thigh 0 0 0
+left_shin 0 0 0
+left_foot 0 0 0
+right_thigh 0 0 0
+right_shin 0 0 0
+right_foot 0 0 0
+key 1.20000005
+root 0 0 0
+hips 0 0 0
+spine 0 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 0 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 0 0 0
+right_forearm 0 0 0
+right_hand 0 0 0
+left_thigh 0 0 0
+left_shin 0 0 0
+left_foot 0 0 0
+right_thigh 0 0 0
+right_shin 0 0 0
+right_foot 0 0 0
+end

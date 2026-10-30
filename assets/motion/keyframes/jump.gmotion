@@ -1,0 +1,97 @@
+GM31_KEYFRAME_MOTION 1
+name "Jump"
+duration 1.39999998
+loop 0
+joints 16
+keys 5
+key 0
+root 0 0 0
+hips 0 0 0
+spine 0 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 0 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 0 0 0
+right_forearm 0 0 0
+right_hand 0 0 0
+left_thigh 0 0 0
+left_shin 0 0 0
+left_foot 0 0 0
+right_thigh 0 0 0
+right_shin 0 0 0
+right_foot 0 0 0
+key 0.25
+root 0 -7 0
+hips 0 0 0
+spine 12 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 0 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 0 0 0
+right_forearm 0 0 0
+right_hand 0 0 0
+left_thigh 38 0 0
+left_shin -70 0 0
+left_foot 0 0 0
+right_thigh 38 0 0
+right_shin -70 0 0
+right_foot 0 0 0
+key 0.649999976
+root 0 34 0
+hips 0 0 0
+spine 0 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 140 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 140 0 0
+right_forearm 0 0 0
+right_hand 0 0 0
+left_thigh 15 0 0
+left_shin -30 0 0
+left_foot 0 0 0
+right_thigh 15 0 0
+right_shin -30 0 0
+right_foot 0 0 0
+key 1.10000002
+root 0 -7 0
+hips 0 0 0
+spine 12 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 0 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 0 0 0
+right_forearm 0 0 0
+right_hand 0 0 0
+left_thigh 38 0 0
+left_shin -70 0 0
+left_foot 0 0 0
+right_thigh 38 0 0
+right_shin -70 0 0
+right_foot 0 0 0
+key 1.39999998
+root 0 0 0
+hips 0 0 0
+spine 0 0 0
+neck 0 0 0
+head 0 0 0
+left_upper_arm 0 0 0
+left_forearm 0 0 0
+left_hand 0 0 0
+right_upper_arm 0 0 0
+right_forearm 0 0 0
+right_hand 0 0 0
+left_thigh 0 0 0
+left_shin 0 0 0
+left_foot 0 0 0
+right_thigh 0 0 0
+right_shin 0 0 0
+right_foot 0 0 0
+end

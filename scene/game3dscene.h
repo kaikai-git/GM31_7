@@ -53,7 +53,6 @@ public:
 	 */
 	void dispose() override;
 
-	void resourceLoader();			// リソースを読み込む
 
 	// フリーカメラのデバッグUI
 	void DebugFreeCamera();
@@ -71,6 +70,8 @@ public:
 	void DebugFieldUnduration();
 
 private:
+    bool m_showPlayerBounds{ false };
+
 	// DirectWrite
 	std::unique_ptr<DirectWrite> m_directwrite;
 

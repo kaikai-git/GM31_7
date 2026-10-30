@@ -26,7 +26,7 @@ void gameinit()
 	SceneManager::Init();
 
 	//　シーン選択
-	SceneManager::SetCurrentScene("Game3DScene");
+	SceneManager::SetCurrentScene("MotionEditorScene");
 
 }
 

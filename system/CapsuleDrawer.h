@@ -16,3 +16,6 @@ void CapsuleDrawerDraw(
 void CapsuleDrawerDraw(SRT srt, Color col);
 
 void CapsuleDrawerDraw(Matrix4x4 mtx, Color col);
+
+// Height is the distance between the two end sphere centers.
+void CapsuleDrawerDraw(float radius, float height, Color col, const Matrix4x4& world);

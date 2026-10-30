@@ -5,7 +5,6 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -13,50 +12,12 @@
 #include "../system/camera.h"
 #include "../system/collision.h"
 #include "../system/commontypes.h"
-#include "../system/CShader.h"
-#include "../system/CStaticMesh.h"
-#include "../system/CStaticMeshRenderer.h"
 #include "../system/DebugUI.h"
 #include "../system/DirectWrite.h"
-#include "../system/meshmanager.h"
 #include "../system/renderer.h"
 #include "../system/RandomEngine.h"
 
 namespace {
-
-	struct Load3DInfo {
-		std::string meshid{};
-		std::string filename;
-		std::string texdirectoryname;
-		Load3DInfo(std::string id, std::string p1, std::string p2) {
-			meshid = id;
-			filename = p1;
-			texdirectoryname = p2;
-		}
-	};
-
-	std::string getfilename(std::string_view filestring) {
-		auto u8name = std::filesystem::path(filestring).filename().u8string();
-		return { reinterpret_cast<const char*>(u8name.data()), u8name.size() };
-	}
-
-	std::array<Load3DInfo, 3> g_loadmodel =
-	{
-			Load3DInfo(
-				"car000.x",
-				"assets/model/car000.x",			// モデル名
-				"assets/model/"),					// テクスチャのパス
-
-			Load3DInfo(
-				"car001.x",
-				"assets/model/car001.x",			// モデル名
-				"assets/model/"),					// テクスチャのパス
-
-			Load3DInfo(
-				"car002.x",
-				"assets/model/car002.x",			// モデル名
-				"assets/model/"),					// テクスチャのパス
-	};
 
 	void OBBDraw(GM31::GE::Collision::BoundingBoxOBB obb,Color col)
 	{
@@ -317,9 +278,11 @@ void Game3DScene::draw(uint64_t deltatime)
 		player* pobj = GetGameObject<player>();
 		SRT srt = pobj->getSRT();
 		bs.center = srt.pos;
-		bs.radius = 20.0f;
+		bs.radius = player::COLLISION_RADIUS;
 
-		::BSDraw(bs, Color(1, 0, 0, 0.3f));
+		if (m_showPlayerBounds) {
+            ::BSDraw(bs, Color(1, 0, 0, 0.3f));
+        }
 
 		// 壁のOBBを表示
 		GM31::GE::Collision::BoundingBoxOBB obb;
@@ -360,8 +323,8 @@ void Game3DScene::init()
 {
 	// カメラ(3D)の初期化
 	m_camera = std::make_unique <FreeCamera>(
-		Vector3(0,30,-100),						// カメラ位置
-		Vector3(0,0,0),							// 注視点
+		Vector3(-150, 90, -150),						// カメラ位置
+        Vector3(0, player::MODEL_HEIGHT * 0.5f, 0),							// 注視点
 		Vector3(0,1,0));						// 上向きベクトル
 
 	// DirectWrite生成
@@ -377,8 +340,7 @@ void Game3DScene::init()
 
 	// プレイヤオブジェクト生成
 	{
-		player* playerObj = addGameObject<player>(0);
-		playerObj->setmeshid("car000.x");
+        addGameObject<player>(0);
 	}
 
 	// フィールドジェクト生成
@@ -416,8 +378,6 @@ void Game3DScene::init()
 		PlaneDrawerInit();
 	}
 
-	// リソースを読み込む
-	resourceLoader();
 
 	// 平面を作る3頂点の初期値
 	m_planevertices[0] = Vector3(-40, 0.1f, 0);
@@ -450,39 +410,6 @@ void Game3DScene::dispose()
 {
 }
 
-/**
- * @brief リソースを読み込む
- */
-void Game3DScene::resourceLoader()
-{
-	{
-		// シェーダを生成
-		std::unique_ptr<CShader> shader{};
-		shader = std::make_unique<CShader>();
-		shader->Create(
-			"shader/vertexLightingVS.hlsl",			// 頂点シェーダー
-			"shader/vertexLightingPS.hlsl"			// ピクセルシェーダー
-		);
-		ShaderManager::RegisterShader<CShader>("Shader3D", std::move(shader));
-	}
-
-	// メッシュを生成
-	for (int cnt = 0; cnt < g_loadmodel.size(); cnt++) {
-		std::unique_ptr<CStaticMesh> mesh{};
-		mesh = std::make_unique<CStaticMesh>();
-		mesh->Load(g_loadmodel[cnt].filename, g_loadmodel[cnt].texdirectoryname);
-
-		// メッシュレンダラを生成
-		std::unique_ptr<CStaticMeshRenderer> meshrenderer{};
-		meshrenderer = std::make_unique<CStaticMeshRenderer>();
-		meshrenderer->Init(*mesh.get());
-
-		g_loadmodel[cnt].meshid = getfilename(g_loadmodel[cnt].filename);
-
-		MeshManager::RegisterMesh<CStaticMesh>(g_loadmodel[cnt].meshid, std::move(mesh));
-		MeshManager::RegisterMeshRenderer<CStaticMeshRenderer>(g_loadmodel[cnt].meshid, std::move(meshrenderer));
-	}
-}
 
 // 壁のデバッグUI
 void Game3DScene::DebugWall() {
@@ -497,6 +424,7 @@ void Game3DScene::DebugWall() {
 	static Wallstate wallstate = {100,200,Vector3(0,0,0),0};
 
 	ImGui::Begin("debug Walls");
+    ImGui::Checkbox("Show player collision sphere", &m_showPlayerBounds);
 
 	ImGui::SliderFloat("height", &wallstate.height, 10.0f, 500.0f);
 	ImGui::SliderFloat("width", &wallstate.width, 10.0f, 1000.0f);
@@ -527,7 +455,7 @@ void Game3DScene::DebugFreeCamera() {
 		float elevation;
 	};
 
-	static camerastate state = { 100.0f, 0.0f, -(PI / 180.0f) * 80.0f };
+	static camerastate state = { 220.0f, PI * 0.25f, -(PI / 180.0f) * 65.0f };
 
 	ImGui::Begin("Debug Free Camera Parameter");
 
