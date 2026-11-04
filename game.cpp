@@ -8,8 +8,45 @@
 #include	"fpscontrol.h"
 #include	"system/inputmanager.h"
 
-void gameinit() 
+#include <array>
+#include <filesystem>
+#include <string_view>
+#include <shellapi.h>
+#pragma comment(lib, "shell32.lib")
+
+namespace {
+void SetResourceDirectory() {
+    std::array<wchar_t, 32768> executable{};
+    GetModuleFileNameW(nullptr, executable.data(), static_cast<DWORD>(executable.size()));
+    for (auto candidate : {std::filesystem::current_path(), std::filesystem::path(executable.data()).parent_path()}) {
+        for (int level = 0; level < 8; ++level) {
+            std::error_code error;
+            if (std::filesystem::exists(candidate / "shader/common.hlsl", error)) {
+                std::filesystem::current_path(candidate, error);
+                return;
+            }
+            const auto parent = candidate.parent_path();
+            if (parent == candidate || parent.empty()) break;
+            candidate = parent;
+        }
+    }
+}
+
+bool EditorRequested() {
+    int count = 0;
+    LPWSTR* arguments = CommandLineToArgvW(GetCommandLineW(), &count);
+    bool editor = false;
+    if (arguments) {
+        for (int i = 1; i < count; ++i) editor |= std::wstring_view(arguments[i]) == L"--editor";
+        LocalFree(arguments);
+    }
+    return editor;
+}
+}
+
+void gameinit()
 {
+    SetResourceDirectory();
 	// レンダラの初期化    
 	Renderer::Init();
 
@@ -26,7 +63,7 @@ void gameinit()
 	SceneManager::Init();
 
 	//　シーン選択
-	SceneManager::SetCurrentScene("MotionEditorScene");
+	SceneManager::SetCurrentScene(EditorRequested() ? "MotionEditorScene" : "Game3DScene");
 
 }
 

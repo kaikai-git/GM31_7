@@ -41,7 +41,8 @@ void Segment(const Vector3& start, const Vector3& end, float radius,
 }
 }
 
-void CapsuleHumanoid::Draw(const Motion::Pose& pose, int selectedJoint, bool showSkeleton, bool showSword) {
+void CapsuleHumanoid::Draw(const Motion::Pose& pose, int selectedJoint, bool showSkeleton, bool showSword,
+    const Matrix4x4& modelWorld) {
     std::array<Matrix4x4, Motion::JointCount> world;
     constexpr float ToRadians = PI / 180.0f;
     for (std::size_t i = 0; i < world.size(); ++i) {
@@ -53,6 +54,7 @@ void CapsuleHumanoid::Draw(const Motion::Pose& pose, int selectedJoint, bool sho
         world[i] = Matrix4x4::CreateFromYawPitchRoll(angle.y * ToRadians, angle.x * ToRadians, angle.z * ToRadians)
             * Matrix4x4::CreateTranslation(offset);
         if (Bones[i].parent >= 0) world[i] *= world[Bones[i].parent];
+        else world[i] *= modelWorld;
     }
     const Color shirt(0.12f, 0.48f, 0.85f, 1);
     const Color trousers(0.13f, 0.19f, 0.30f, 1);

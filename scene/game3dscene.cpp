@@ -153,48 +153,19 @@ Game3DScene::Game3DScene()
  */
 void Game3DScene::update(uint64_t deltatime)
 {
-
-	// 全オブジェクトを処理
-	for (int layer = 0; layer < LAYERMAX; ++layer)
-	{
-		auto& objects = m_gameobjects[layer];
-
-		for (auto& obj : objects)
-		{
-			if (obj && !obj->isDestroyed())
-			{
-				obj->update(deltatime);
-			}
-		}
-	}
-
-	// 削除
-	for (int layer = 0; layer < LAYERMAX; ++layer)
-	{
-		auto& objects = m_gameobjects[layer];
-
-		std::erase_if(
-			objects,
-			[](const std::unique_ptr<gameobject>& obj)
-			{
-				return obj == nullptr || obj->isDestroyed();
-			});
-	}
-
-	// 追加
-	for (int layer = 0; layer < LAYERMAX; ++layer)
-	{
-		auto& objects = m_gameobjects[layer];
-		auto& pending = m_pendingAddObjects[layer];
-
-		for (auto& obj : pending)
-		{
-			objects.push_back(std::move(obj));
-		}
-
-		pending.clear();
-	}
-
+    for (auto& objects : m_gameobjects) {
+        for (auto& object : objects) {
+            if (object && !object->isDestroyed()) object->update(deltatime);
+        }
+    }
+    for (auto& objects : m_gameobjects) {
+        std::erase_if(objects, [](const auto& object) { return !object || object->isDestroyed(); });
+    }
+    for (int layer = 0; layer < LAYERMAX; ++layer) {
+        for (auto& object : m_pendingAddObjects[layer]) m_gameobjects[layer].push_back(std::move(object));
+        m_pendingAddObjects[layer].clear();
+    }
+    UpdateFollowCamera();
 }
 
 /**
@@ -207,6 +178,7 @@ void Game3DScene::draw(uint64_t deltatime)
 {
 	m_camera->Draw();
 
+    if (m_showAxes) {
 	// 3軸カラー
 	Color axiscol[3] = {
 		Color(1, 0, 0, 1),
@@ -233,6 +205,8 @@ void Game3DScene::draw(uint64_t deltatime)
 		m_segments[cnt]->Draw(worldmtx, axiscol[cnt]);
 	}
 
+    }
+
 	for (int layer = 0; layer < LAYERMAX; ++layer)
 	{
 		auto& objects = m_gameobjects[layer];
@@ -246,6 +220,7 @@ void Game3DScene::draw(uint64_t deltatime)
 		}
 	}
 
+    if (m_showTerrainTriangle) {
 	// フィールドとプレイヤを取得
 	player* playerobj = GetGameObject<player>();
 
@@ -272,16 +247,15 @@ void Game3DScene::draw(uint64_t deltatime)
 	::LineDraw(currenttriangle[1], currenttriangle[2], Color(1, 1, 1, 1));
 	::LineDraw(currenttriangle[2], currenttriangle[0], Color(1, 1, 1, 1));
 
-	{
-		// プレイヤのBSを表示
-		GM31::GE::Collision::BoundingSphere bs;
-		player* pobj = GetGameObject<player>();
-		SRT srt = pobj->getSRT();
-		bs.center = srt.pos;
-		bs.radius = player::COLLISION_RADIUS;
+    }
 
-		if (m_showPlayerBounds) {
-            ::BSDraw(bs, Color(1, 0, 0, 0.3f));
+	{
+        player* pobj = GetGameObject<player>();
+        if (m_showPlayerBounds) {
+            const Matrix4x4 bounds = Matrix4x4::CreateTranslation(
+                pobj->getSRT().pos + Vector3(0, player::MODEL_HEIGHT * 0.5f, 0));
+            CapsuleDrawerDraw(player::COLLISION_RADIUS,
+                player::MODEL_HEIGHT - 2 * player::COLLISION_RADIUS, Color(1, 0, 0, 0.2f), bounds);
         }
 
 		// 壁のOBBを表示
@@ -304,7 +278,7 @@ void Game3DScene::draw(uint64_t deltatime)
 			obb.axisZ = mtx.Forward();
 
 			{
-				bool sts = GM31::GE::Collision::CollisionSphereOBB(bs,obb);
+				bool sts = pobj->overlapsWall(*wallobj);
 				if (sts) {
 					OBBDraw(obb,Color(1,0,0,0.3f));
 				}
@@ -321,86 +295,61 @@ void Game3DScene::draw(uint64_t deltatime)
  */
 void Game3DScene::init()
 {
-	// カメラ(3D)の初期化
-	m_camera = std::make_unique <FreeCamera>(
-		Vector3(-150, 90, -150),						// カメラ位置
-        Vector3(0, player::MODEL_HEIGHT * 0.5f, 0),							// 注視点
-		Vector3(0,1,0));						// 上向きベクトル
+    SetWindowTextW(Application::GetWindow(), L"GM31 No.7 - Character Gameplay (Video 2)");
+    m_camera = std::make_unique<FreeCamera>(Vector3(0, 140, -240),
+        Vector3(0, player::MODEL_HEIGHT * 0.5f, 0), Vector3(0, 1, 0));
+    m_segments[0] = std::make_unique<Segment>(Vector3(0, 0, 0), Vector3(100, 0, 0));
+    m_segments[1] = std::make_unique<Segment>(Vector3(0, 0, 0), Vector3(0, 100, 0));
+    m_segments[2] = std::make_unique<Segment>(Vector3(0, 0, 0), Vector3(0, 0, 100));
 
-	// DirectWrite生成
-	m_directwrite = std::make_unique<DirectWrite>(&m_fontdata);
-	m_directwrite->Init(Renderer::GetSwapChain());
+    field* terrain = addGameObject<field>(0);
+    terrain->makeundulationwithperlin(0, 30, 0.35f, 10, 10);
+    player* character = addGameObject<player>(0);
+    character->setPosition(Vector3(0, terrain->GetHeight2(Vector3(0, 0, 0)), 0));
 
-	{
-		// 軸表示用線分の初期化
-		m_segments[0] = std::make_unique<Segment>(Vector3(0, 0, 0), Vector3(100, 0, 0));
-		m_segments[1] = std::make_unique<Segment>(Vector3(0, 0, 0), Vector3(0, 100, 0));
-		m_segments[2] = std::make_unique<Segment>(Vector3(0, 0, 0), Vector3(0, 0, 100));
-	}
-
-	// プレイヤオブジェクト生成
-	{
-        addGameObject<player>(0);
-	}
-
-	// フィールドジェクト生成
-	{
-		field* fieldObj = addGameObject<field>(0);
-	}
-
-	// 壁オブジェクト生成
-	{
-		RandomEngine randeng{};
-		for (int wallcnt = 0; wallcnt < WALLNUM; wallcnt++) {
-			{
-				wall* wallObj = addGameObject<wall>(0);
-				wallObj->setheight(200);
-				wallObj->setwidth(300);
-				wallObj->setthick(1.0f);
-				wallObj->setPosition(Vector3(
-					randeng.uniformRealfloat(-500, 500),
-					0,
-					randeng.uniformRealfloat(-500, 500)
-				));	
-				wallObj->setRotationY(randeng.uniformRealfloat(-PI, PI));
-				wallObj->calcEqation();
-			}
-		}
-	}
-
-	{
-		SphereDrawerInit();
-		BoxDrawerInit();
-		CylinderDrawerInit();
-		ConeDrawerInit(true);
-		LineDrawerInit();
-		CapsuleDrawerInit();
-		PlaneDrawerInit();
-	}
-
-
-	// 平面を作る3頂点の初期値
-	m_planevertices[0] = Vector3(-40, 0.1f, 0);
-	m_planevertices[1] = Vector3(0, 0.1f, 40);
-	m_planevertices[2] = Vector3(-40, 0.1f, 40);
-
-	// 平面の回転角度の初期値（度）
-	m_planerotation = Vector3(0, 0, 0);
-
-	// 直線の開始点・終了点・媒介変数の初期値
-	m_linestart = Vector3(0, -10, -0);
-	m_lineend = Vector3(0, 10, 0);
-	m_linet = 1.0f;
-
-	// デバッグUIにフリーカメラのパラメータを表示する関数を登録
-	DebugUI::RedistDebugFunction([this]() {
-		DebugFreeCamera();
-//		DebugPlane();
-//		DebugLine();
-		DebugWall();
-		DebugFieldUnduration();
-		});
-
+    RandomEngine random;
+    for (uint32_t i = 0; i < WALLNUM; ++i) {
+        wall* object = addGameObject<wall>(0);
+        Vector3 position{};
+        float height = 100;
+        float width = 260;
+        float angle = 0;
+        if (i == 0) {
+            position = Vector3(0, 0, 180);
+        } else if (i == 1) {
+            // A low fence to demonstrate jumping over an obstacle.
+            position = Vector3(150, 0, 0);
+            height = 24;
+            width = 180;
+            angle = PI * 0.5f;
+        } else {
+            for (int attempt = 0; attempt < 32; ++attempt) {
+                position = Vector3(random.uniformRealfloat(-400, 400), 0, random.uniformRealfloat(-400, 400));
+                if (position.LengthSquared() >= 250 * 250) break;
+                position = Vector3(350, 0, 350);
+            }
+            angle = random.uniformRealfloat(-PI, PI);
+        }
+        position.y = terrain->GetHeight2(position) + height * 0.5f;
+        object->setheight(height);
+        object->setwidth(width);
+        object->setthick(3);
+        object->setPosition(position);
+        object->setRotationY(angle);
+        object->calcEqation();
+    }
+    CapsuleDrawerInit();
+    BoxDrawerInit();
+    CylinderDrawerInit();
+    ConeDrawerInit(true);
+    LineDrawerInit();
+    PlaneDrawerInit();
+    DebugUI::RedistDebugFunction([this]() {
+        DebugCharacter();
+        DebugFreeCamera();
+        DebugWall();
+        DebugFieldUnduration();
+    });
 }
 
 /**
@@ -413,65 +362,42 @@ void Game3DScene::dispose()
 
 // 壁のデバッグUI
 void Game3DScene::DebugWall() {
-
-	struct Wallstate {
-		float height;
-		float width;
-		Vector3 position;
-		float roty;
-	};
-
-	static Wallstate wallstate = {100,200,Vector3(0,0,0),0};
-
-	ImGui::Begin("debug Walls");
-    ImGui::Checkbox("Show player collision sphere", &m_showPlayerBounds);
-
-	ImGui::SliderFloat("height", &wallstate.height, 10.0f, 500.0f);
-	ImGui::SliderFloat("width", &wallstate.width, 10.0f, 1000.0f);
-	ImGui::SliderFloat("rotation Y", &wallstate.roty, -PI, PI);
-
-	ImGui::DragFloat3("position", &wallstate.position.x, 1.0f,-1000, 1000);
-
-	wall* wobj = GetGameObject<wall>();
-
-	wobj->setwidth(wallstate.width);
-	wobj->setheight(wallstate.height);
-	wobj->setPosition(wallstate.position);
-	wobj->setthick(1.0f);
-	SRT srt = wobj->getSRT();
-	srt.rot.y = wallstate.roty;
-	wobj->setSRT(srt);
-
-	wobj->calcEqation();
-	ImGui::End();
+    ImGui::SetNextWindowPos(ImVec2(950, 250), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(310, 0), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("debug Walls")) { ImGui::End(); return; }
+    ImGui::Checkbox("Show player capsule", &m_showPlayerBounds);
+    wall* object = GetGameObject<wall>();
+    if (object) {
+        float height = object->getheight();
+        float width = object->getwidth();
+        SRT transform = object->getSRT();
+        bool changed = ImGui::SliderFloat("height", &height, 10, 300);
+        changed |= ImGui::SliderFloat("width", &width, 10, 500);
+        changed |= ImGui::SliderFloat("rotation Y", &transform.rot.y, -PI, PI);
+        changed |= ImGui::DragFloat3("position", &transform.pos.x, 1, -500, 500);
+        if (changed) {
+            object->setheight(height);
+            object->setwidth(width);
+            object->setSRT(transform);
+            object->calcEqation();
+        }
+    }
+    ImGui::End();
 }
 
 // フリーカメラのデバッグUI
 void Game3DScene::DebugFreeCamera() {
-
-	struct camerastate {
-		float cameraradius;
-		float azimuth;
-		float elevation;
-	};
-
-	static camerastate state = { 220.0f, PI * 0.25f, -(PI / 180.0f) * 65.0f };
-
-	ImGui::Begin("Debug Free Camera Parameter");
-
-	ImGui::SliderFloat("Radius", &state.cameraradius, 10.0f, 500.0f);
-	ImGui::SliderFloat("Azimuth", &state.azimuth, 0.0f, 2 * PI);
-	ImGui::SliderFloat("Elevation", &state.elevation, -PI, PI);
-
-	FreeCamera* freecam = dynamic_cast<FreeCamera*>(m_camera.get());
-
-	freecam->SetRadius(state.cameraradius);
-	freecam->SetAzimuth(state.azimuth);
-	freecam->SetElevation(state.elevation);
-
-	freecam->Update();
-
-	ImGui::End();
+    ImGui::SetNextWindowPos(ImVec2(950, 12), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(310, 0), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
+    ImGui::Begin("Gameplay Camera");
+    ImGui::SliderFloat("Radius", &m_cameraRadius, 150, 400);
+    ImGui::SliderFloat("Azimuth", &m_cameraAzimuth, 0, 2 * PI);
+    ImGui::SliderFloat("Elevation", &m_cameraElevation, -1.5f, -0.3f);
+    ImGui::Checkbox("Show axes", &m_showAxes);
+    ImGui::Checkbox("Show terrain triangle", &m_showTerrainTriangle);
+    ImGui::End();
 }
 
 // 平面のデバッグUI
@@ -633,7 +559,9 @@ void Game3DScene::DebugLine() {
 // フィールドに凸凹にする
 void Game3DScene::DebugFieldUnduration() {
 
-	ImGui::Begin("debug Field Remake with unduration");
+	ImGui::SetNextWindowPos(ImVec2(950, 500), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
+    ImGui::Begin("debug Field Remake with unduration");
 
 	static float minheight = 0.0f;
 	static float maxheight = 100.0f;
@@ -658,4 +586,41 @@ void Game3DScene::DebugFieldUnduration() {
 	}
 
 	ImGui::End();
+}
+
+void Game3DScene::UpdateFollowCamera() {
+    const player* character = GetGameObject<player>();
+    field* terrain = GetGameObject<field>();
+    if (!character || !terrain) return;
+    Vector3 target = character->getSRT().pos;
+    // Follow ground height, so the character's jump remains visible on screen.
+    target.y = terrain->GetHeight2(target) + player::MODEL_HEIGHT * 0.5f;
+    CPolor3D offset(m_cameraRadius, m_cameraElevation, m_cameraAzimuth);
+    m_camera->SetLookat(target);
+    m_camera->SetPosition(target + offset.ToCartesian());
+    m_camera->SetUP(Vector3(0, 1, 0));
+}
+
+void Game3DScene::DebugCharacter() {
+    ImGui::SetWindowPos("Debug Information", ImVec2(12, 640), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(12, 12), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Character Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::TextUnformatted("W A S D : Walk     Space : Jump");
+    ImGui::TextUnformatted("J : Horizontal slash   K : Vertical slash");
+    ImGui::TextUnformatted("R : Reload saved .gmotion files");
+    if (const player* character = GetGameObject<player>()) {
+        const auto& motion = character->animation();
+        const char* attack = motion.CurrentAttack() == Motion::Attack::Horizontal ? "Horizontal"
+            : (motion.CurrentAttack() == Motion::Attack::Vertical ? "Vertical" : "None");
+        ImGui::Text("Motion: %s   Attack: %s", motion.LocomotionName(), attack);
+        const Vector3 position = character->getSRT().pos;
+        ImGui::Text("Position: %.1f, %.1f, %.1f", position.x, position.y, position.z);
+        ImGui::Text("Speed: %.1f   Grounded: %s   Wall: %s", character->getSpeed(),
+            motion.Grounded() ? "Yes" : "No", character->isHitWall() ? "Yes" : "No");
+        ImGui::PushTextWrapPos(370);
+        ImGui::TextColored(character->motionsLoaded() ? ImVec4(0.5f, 1, 0.65f, 1) : ImVec4(1, 0.6f, 0.3f, 1),
+            "%s", character->motionStatus().c_str());
+        ImGui::PopTextWrapPos();
+    }
+    ImGui::End();
 }

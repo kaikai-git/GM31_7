@@ -211,6 +211,7 @@
     <ClInclude Include="system\utility.h" />
     <ClInclude Include="utility\animationsystem.h" />
     <ClInclude Include="utility\keyframemotion.h" />
+    <ClInclude Include="utility\charactermotion.h" />
     <ClInclude Include="utility\circle.h" />
     <ClInclude Include="utility\stopwatch.h" />
   </ItemGroup>
@@ -272,9 +273,11 @@
     <ClCompile Include="system\utility.cpp" />
     <ClCompile Include="utility\animationsystem.cpp" />
     <ClCompile Include="utility\keyframemotion.cpp" />
+    <ClCompile Include="utility\charactermotion.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="MOTION_EDITOR.md" />
+    <None Include="GAMEPLAY.md" />
     <None Include="assets\motion\keyframes\*.gmotion" />
   </ItemGroup>
   <ItemGroup>
@@ -303,4 +306,8 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <Target Name="CopyAssimpRuntime" AfterTargets="Build"
+          Condition="'$(Configuration)|$(Platform)' == 'Debug|x64' and Exists('$(ProjectDir)assimp-vc143-mtd.dll')">
+    <Copy SourceFiles="$(ProjectDir)assimp-vc143-mtd.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

@@ -466,4 +466,12 @@
       <Filter>ソース ファイル\utility</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="utility\charactermotion.h">
+      <Filter>ソース ファイル\utility</Filter>
+    </ClInclude>
+    <ClCompile Include="utility\charactermotion.cpp">
+      <Filter>ソース ファイル\utility</Filter>
+    </ClCompile>
+  </ItemGroup>
 </Project>

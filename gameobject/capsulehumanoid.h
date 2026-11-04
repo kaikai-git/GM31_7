@@ -3,8 +3,9 @@
 #include "../system/commontypes.h"
 #include "../utility/keyframemotion.h"
 
-// An editor preview only: no movement input, physics, or gameplay actions.
+// Shared skeletal renderer; movement and physics are controlled by the caller.
 class CapsuleHumanoid {
 public:
-    static void Draw(const Motion::Pose& pose, int selectedJoint, bool showSkeleton, bool showSword);
+    static void Draw(const Motion::Pose& pose, int selectedJoint, bool showSkeleton, bool showSword,
+        const Matrix4x4& modelWorld = Matrix4x4::Identity);
 };
